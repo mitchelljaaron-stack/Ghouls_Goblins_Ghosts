@@ -23,9 +23,6 @@ train_data <- train_data %>%
 test_data <- test_data %>%
   mutate(color = as.factor(color))
 
-ggplot(data = train_data, aes(bone_length, hair_length))+
-  geom_point()
-
 ## nb model
 nb_model <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>%
   set_mode("classification") %>%
@@ -34,27 +31,25 @@ nb_model <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>%
 
 # Create recipe
 my_recipe <- recipe(type ~ ., data = train_data) %>%
-  # Collapse rare categories (<0.1%)
-  step_other(all_nominal_predictors(), threshold = 0.001, other = "other") %>%
-  # Target encoding
-  step_lencode_glm(all_nominal_predictors(), outcome = vars(type)) %>% 
-  step_smote(all_outcomes(), neighbors=2)
-
+  step_lencode_glm(all_nominal_predictors(), outcome = vars(type)) %>%
+  step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
+  step_smote(all_outcomes(), neighbors=5)
 
 
 nb_wf <- workflow() %>%
   add_recipe(my_recipe) %>%
   add_model(nb_model)
 
+
 ## Grid of values to tune over
 tuning_grid <- grid_regular(
   Laplace(range = c(0, 1)),
   smoothness(range = c(0,1)),
-  levels = 5
+  levels = 20
 )
 
 ## Split data for CV
-folds <- vfold_cv(train_data, v = 4, repeats=2)
+folds <- vfold_cv(train_data, v = 10, repeats=1)
 
 ## Run the CV
 CV_results <- nb_wf %>%
@@ -80,4 +75,4 @@ final_predictions <- final_wf %>%
   select(id, type)
 
 # Export processed dataset
-vroom_write(x = final_predictions, file = "./ggg_nb_model_preds_c.csv", delim = ",")
+vroom_write(x = final_predictions, file = "./ggg_nb_model_preds_g.csv", delim = ",")
